@@ -3,7 +3,7 @@ import Image from "next/image";
 import { Inter } from "next/font/google";
 import { Icon } from "@iconify/react";
 import StoreCard from "@/components/StoreCard";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import PurchaseRow from "@/components/PurchaseRow";
 
 export default function Home() {
@@ -23,6 +23,7 @@ export default function Home() {
     address: "",
   });
 
+  const [total, setTotal] = useState(0);
   const [items, setItems] = useState([]);
   const [item, setItem] = useState({
     name: "",
@@ -67,7 +68,7 @@ export default function Home() {
   };
 
   const AddItemRow = () => (
-    <div className="flex items-center">
+    <div className="hidden lg:flex items-center">
       <input
         type="text"
         className="px-4 h-12 outline-none w-full border overflow-hidden rounded"
@@ -136,12 +137,20 @@ export default function Home() {
     </div>
   );
 
+  useEffect(() => {
+    let total = 0;
+    items.forEach((item) => {
+      total += item.price * item.quantity;
+    });
+    setTotal(total);
+  }, [items]);
+
   return (
-    <main className="fixed inset-0 max-h-screen overflow-auto">
-      <div className="bg-gradient-to-b from-neutral-50 to-neutral-50 pb-7 border-b flex flex-col items-center justify-center relative overflow-hidden">
+    <main className="fixed inset-0 max-h-screen overflow-auto pb-16">
+      <div className="bg-gradient-to-b from-white to-slate-50 pb-7 border-b flex flex-col items-center justify-center relative overflow-hidden">
         {staticImages()}
-        <nav className=" w-full h-16 flex items-center px-16">
-          <ul className="flex items-center space-x-10 text-sm ml-auto">
+        <nav className="w-full h-16 flex items-center px-16 justify-center lg:justify-end">
+          <ul className="flex items-center space-x-10 text-sm">
             <li>Settings</li>
             <li>Stores</li>
             <li>History</li>
@@ -169,9 +178,8 @@ export default function Home() {
           </div>
         </section>
       </div>
-
-      <div className="px-24 mt-10 flex">
-        <div className="w-[60%] h-screen">
+      <div className="px-6 lg:px-24 mt-10 lg:flex">
+        <section className="lg:w-[60%]">
           <section>
             <div className="flex items-center">
               <span className="h-10 w-10 border-2 font-semibold text-lg border-black flex items-center justify-center rounded-full">
@@ -187,7 +195,7 @@ export default function Home() {
                   Choose existing customer
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-4 mt-7">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-7">
                 <div>
                   <label
                     className="text-xs font-medium text-neutral-500"
@@ -312,7 +320,6 @@ export default function Home() {
               </div>
             </div>
           </section>
-
           <section>
             <div className="flex items-center mt-16">
               <span className="h-10 w-10 border-2 font-semibold text-lg border-black flex items-center justify-center rounded-full">
@@ -324,41 +331,88 @@ export default function Home() {
             </div>
             <div className="mt-10">
               {AddItemRow()}
-              <table className="w-full mt-10">
-                <thead className="pl-3 w-full">
-                  <tr>
-                    <th className="font-medium px-5 py-4 text-sm text-left text-neutral-600">
-                      No.
-                    </th>
-                    <th className="font-medium px-5 py-4 text-sm text-left text-neutral-600">
-                      Name
-                    </th>
-                    <th className="font-medium px-5 py-4 text-sm text-left text-neutral-600">
-                      Price
-                    </th>
-                    <th className="font-medium px-5 py-4 text-sm text-left text-neutral-600">
-                      Quantity
-                    </th>
-                    <th className="font-medium px-5 py-4 text-sm text-left text-neutral-600">
-                      Total
-                    </th>
-                    <th className="font-medium px-5 py-4 text-sm text-left"></th>
-                  </tr>
-                </thead>
-                <tbody className="w-full">
-                  {items.map((item, index) => (
-                    <PurchaseRow
-                      key={index}
-                      item={item}
-                      index={index}
-                      onRemove={onRemove}
-                    />
-                  ))}
-                </tbody>
-              </table>
+              {items.length > 0 && (
+                <table className="w-full mt-10 overflow-auto whitespace-nowrap">
+                  <thead className="pl-3 w-full">
+                    <tr>
+                      <th className="font-medium px-5 py-4 text-sm text-left text-neutral-600">
+                        No.
+                      </th>
+                      <th className="font-medium px-5 py-4 text-sm text-left text-neutral-600">
+                        Name
+                      </th>
+                      <th className="font-medium px-5 py-4 text-sm text-left text-neutral-600">
+                        Price
+                      </th>
+                      <th className="font-medium px-5 py-4 text-sm text-left text-neutral-600">
+                        Quantity
+                      </th>
+                      <th className="font-medium px-5 py-4 text-sm text-left text-neutral-600">
+                        Total
+                      </th>
+                      <th className="font-medium px-5 py-4 text-sm text-left"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="w-full">
+                    {items.map((item, index) => (
+                      <PurchaseRow
+                        key={index}
+                        item={item}
+                        index={index}
+                        onRemove={onRemove}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </section>
-        </div>
+        </section>
+        <section className="lg:w-[40%] lg:pl-16">
+          <div className="bg-neutral-50/50 px-4 py-5 min-h-[200px] border">
+            <div className="flex items-center justify-center whitespace-nowrap">
+              <div className="h-[1px] w-full bg-slate-200"></div>
+              <span className="shrink-0 ml-5">
+                <Icon height={24} icon="solar:bill-list-linear" />
+              </span>
+              <span className="font-semibold text-neutral-600 font-poppins ml-2 mr-5">
+                Bill preview
+              </span>
+              <div className="h-[1px] w-full bg-slate-200"></div>
+            </div>
+
+            <div className="mt-7 border-b border-neutral-200 pb-6">
+              {items.map((item, index) => (
+                <div
+                  key={index}
+                  className="grid grid-cols-5 items-center justify-between mt-5"
+                >
+                  <span className="text-sm col-span-3 font-medium text-neutral-600">
+                    {item.name}
+                  </span>
+                  <span className="text-sm font-medium text-right text-neutral-600">
+                    {item.quantity}
+                  </span>
+                  <span className="text-sm font-medium text-right text-neutral-600">
+                    ₹{item.price * item.quantity}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-between items-center">
+              <p className="text-sm font-semibold text-neutral-700 mt-7">
+                Total Amount
+              </p>
+
+              <span className="text-base font-medium text-neutral-700">
+                ₹{total}
+              </span>
+            </div>
+            <button className="h-12 w-full bg-slate-900 text-white tracking-wide mt-10 rounded">
+              Generate Invoice
+            </button>
+          </div>
+        </section>
       </div>
     </main>
   );
