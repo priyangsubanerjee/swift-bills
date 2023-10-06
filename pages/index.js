@@ -1,12 +1,20 @@
 /* eslint-disable @next/next/no-img-element */
 import Image from "next/image";
+import { v4 as uuidv4 } from "uuid";
 import { Inter } from "next/font/google";
 import { Icon } from "@iconify/react";
 import StoreCard from "@/components/StoreCard";
 import { useEffect, useState } from "react";
 import PurchaseRow from "@/components/PurchaseRow";
+import { decrypt, encrypt } from "@/helper/crypto";
+import { useRouter } from "next/router";
 
 export default function Home() {
+  const router = useRouter();
+  const [savedCustomers, setSavedCustomers] = useState([]);
+  const [savedStores, setSavedStores] = useState([]);
+
+  const [customerQuery, setCustomerQuery] = useState("");
   const [saveBillingDetails, setSaveBillingDetails] = useState(false);
   const [billingDetails, setBillingDetails] = useState({
     name: "",
@@ -30,6 +38,7 @@ export default function Home() {
     price: "",
     quantity: 1,
   });
+  const [chooseCustomerOpen, setChooseCustomerOpen] = useState(false);
 
   const addItem = () => {
     if (item.name === "" || item.price === "") return;
@@ -38,6 +47,7 @@ export default function Home() {
     newItems.push(item);
     setItems(newItems);
     setItem({
+      id: uuidv4(),
       name: "",
       price: "",
       quantity: 1,
@@ -145,8 +155,121 @@ export default function Home() {
     setTotal(total);
   }, [items]);
 
+  useEffect(() => {
+    let localCustomerDetails = localStorage.getItem("customerDetails");
+    if (localCustomerDetails) {
+      localCustomerDetails = JSON.parse(
+        decrypt(JSON.parse(localCustomerDetails))
+      );
+      if (customerQuery === "") {
+        setSavedCustomers(localCustomerDetails);
+        return;
+      }
+      localCustomerDetails = localCustomerDetails.filter(
+        (customer) =>
+          customer.name.toLowerCase().includes(customerQuery.toLowerCase()) ||
+          customer.phone.includes(customerQuery) ||
+          customer.email.toLowerCase().includes(customerQuery.toLowerCase()) ||
+          customer.zipCode.includes(customerQuery)
+      );
+      setSavedCustomers(localCustomerDetails);
+    } else {
+      setSavedCustomers([]);
+    }
+  }, [customerQuery]);
+
+  useEffect(() => {
+    let localCustomerDetails = localStorage.getItem("customerDetails");
+    if (localCustomerDetails) {
+      localCustomerDetails = JSON.parse(
+        decrypt(JSON.parse(localCustomerDetails))
+      );
+      setSavedCustomers(localCustomerDetails);
+    } else {
+      setSavedCustomers([]);
+    }
+  }, []);
+
+  const generateInvoice = () => {
+    if (items.length === 0) {
+      alert("Please add items to generate invoice");
+      return;
+    } else if (
+      billingDetails.name == "" ||
+      billingDetails.phone == "" ||
+      billingDetails.zipCode == ""
+    ) {
+      alert("Please fill all the billing details");
+      return;
+    }
+
+    if (saveBillingDetails) {
+      let localCustomerDetails = localStorage.getItem("customerDetails");
+      if (localCustomerDetails) {
+        localCustomerDetails = JSON.parse(
+          decrypt(JSON.parse(localCustomerDetails))
+        );
+        localCustomerDetails.push({
+          ...billingDetails,
+        });
+        localCustomerDetails = encrypt(JSON.stringify(localCustomerDetails));
+        localStorage.setItem(
+          "customerDetails",
+          JSON.stringify(localCustomerDetails)
+        );
+      } else {
+        localCustomerDetails = [];
+        localCustomerDetails.push({
+          ...billingDetails,
+        });
+        localCustomerDetails = encrypt(JSON.stringify(localCustomerDetails));
+        localStorage.setItem(
+          "customerDetails",
+          JSON.stringify(localCustomerDetails)
+        );
+      }
+    }
+    // get saved billing details from local storage
+
+    let invoiceId = uuidv4();
+    let localBillingDetails = localStorage.getItem("billingDetails");
+    if (localBillingDetails) {
+      localBillingDetails = JSON.parse(
+        decrypt(JSON.parse(localBillingDetails))
+      );
+      localBillingDetails.push({
+        id: invoiceId,
+        ...billingDetails,
+        storeDetails,
+        items,
+        total,
+      });
+      localBillingDetails = encrypt(JSON.stringify(localBillingDetails));
+      localStorage.setItem(
+        "billingDetails",
+        JSON.stringify(localBillingDetails)
+      );
+      router.push(`/invoice/${invoiceId}`);
+    } else {
+      localBillingDetails = [];
+      localBillingDetails.push({
+        id: invoiceId,
+        ...billingDetails,
+        storeDetails,
+        items,
+        total,
+      });
+      localBillingDetails = encrypt(JSON.stringify(localBillingDetails));
+      localStorage.setItem(
+        "billingDetails",
+        JSON.stringify(localBillingDetails)
+      );
+      router.push(`/invoice/${invoiceId}`);
+    }
+  };
+
   return (
-    <main className="fixed inset-0 max-h-screen overflow-auto pb-16">
+    <main className="fixed inset-0 max-h-screen overflow-y-auto overflow-x-hidden pb-16">
       <div className="bg-gradient-to-b from-white to-slate-50 pb-7 border-b flex flex-col items-center justify-center relative overflow-hidden">
         {staticImages()}
         <nav className="w-full h-16 flex items-center px-16 justify-center lg:justify-end">
@@ -191,9 +314,14 @@ export default function Home() {
             </div>
             <div className=" mt-10">
               <div>
-                <button className="text-sm text-blue-600 hover:underline">
-                  Choose existing customer
-                </button>
+                {savedCustomers.length > 0 && (
+                  <button
+                    onClick={() => setChooseCustomerOpen(true)}
+                    className="text-sm text-blue-600 hover:underline"
+                  >
+                    Choose existing customer
+                  </button>
+                )}
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-7">
                 <div>
@@ -329,7 +457,7 @@ export default function Home() {
                 Purchased Items
               </span>
             </div>
-            <div className="mt-10">
+            <div className="mt-10 overflow-x-auto">
               {AddItemRow()}
               {items.length > 0 && (
                 <table className="w-full mt-10 overflow-auto whitespace-nowrap">
@@ -368,7 +496,7 @@ export default function Home() {
             </div>
           </section>
         </section>
-        <section className="lg:w-[40%] lg:pl-16">
+        <section className="lg:w-[40%] lg:pl-16 mt-20 lg:mt-0">
           <div className="bg-neutral-50/50 px-4 py-5 min-h-[200px] border">
             <div className="flex items-center justify-center whitespace-nowrap">
               <div className="h-[1px] w-full bg-slate-200"></div>
@@ -408,12 +536,135 @@ export default function Home() {
                 ₹{total}
               </span>
             </div>
-            <button className="h-12 w-full bg-slate-900 text-white tracking-wide mt-10 rounded">
+            <button
+              onClick={() => {
+                generateInvoice();
+              }}
+              className="h-12 w-full bg-slate-900 text-white tracking-wide mt-10 rounded"
+            >
               Generate Invoice
             </button>
           </div>
         </section>
       </div>
+      {chooseCustomerOpen && (
+        <div className="fixed inset-0 h-full w-full bg-black/50 flex items-center justify-center">
+          <div className="bg-white w-[550px] h-[500px] relative overflow-y-auto rounded-md">
+            <div className="bg-white sticky top-0 inset-x-0 border-b">
+              <div className="flex items-center justify-between bg-slate-50 h-16 px-6 border-b">
+                <div className="flex items-center space-x-2">
+                  <span className="text-base font-semibold text-slate-700">
+                    Choose customer
+                  </span>
+                </div>
+                <button
+                  onClick={() => setChooseCustomerOpen(false)}
+                  className="text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+              <div className="flex items-center px-6">
+                <span>
+                  <Icon height={17} icon="carbon:search" />
+                </span>
+                <input
+                  type="text"
+                  value={customerQuery}
+                  onChange={(e) => setCustomerQuery(e.target.value)}
+                  placeholder="Search customer"
+                  className="h-12 outline-none px-3 w-full text-sm"
+                />
+              </div>
+            </div>
+            <div className="mt-4">
+              {savedCustomers.map((customer, index) => (
+                <div
+                  key={index}
+                  className="text-xs space-y-1 text-neutral-600 border-b pb-4 px-6 mb-4 flex items-center justify-between"
+                >
+                  <div className="text-xs space-y-1 text-neutral-600">
+                    <p className="text-sm text-neutral-800 font-medium">
+                      {customer.name}
+                    </p>
+                    <p>
+                      {customer.phone} | {customer.zipCode}
+                    </p>
+                    <p>{customer.email}</p>
+                    <p>{customer.address}</p>
+                  </div>
+                  <div className="justify-end flex">
+                    <button
+                      onClick={() => {
+                        setBillingDetails({
+                          ...customer,
+                        });
+                        setChooseCustomerOpen(false);
+                        setSaveBillingDetails(false);
+                      }}
+                      className="border px-3 py-2 rounded text-sm"
+                    >
+                      Choose
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* <div className="sticky top-0 inset-x-0 border-b">
+              <div className="flex items-center justify-end">
+                <input
+                  type="text"
+                  value={customerQuery}
+                  onChange={(e) => setCustomerQuery(e.target.value)}
+                  placeholder="Search customer"
+                  className="w-full h-12 outline-none px-4"
+                  name=""
+                  id=""
+                />
+                <button
+                  onClick={() => setChooseCustomerOpen(false)}
+                  className="text-sm px-4 h-12 border-l bg-neutral-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              {savedCustomers.map((customer, index) => (
+                <div
+                  key={index}
+                  className="text-xs space-y-1 text-neutral-600 border-b pb-3 mb-3 flex items-center justify-between"
+                >
+                  <div className="text-xs space-y-1 text-neutral-600">
+                    <p className="text-sm text-neutral-800 font-medium">
+                      {customer.name}
+                    </p>
+                    <p>
+                      {customer.phone} | {customer.zipCode}
+                    </p>
+                    <p>{customer.email}</p>
+                    <p>{customer.address}</p>
+                  </div>
+                  <div className="justify-end flex">
+                    <button
+                      onClick={() => {
+                        setBillingDetails({
+                          ...customer,
+                        });
+                        setChooseCustomerOpen(false);
+                        setSaveBillingDetails(false);
+                      }}
+                      className="border px-3 py-2 rounded text-sm"
+                    >
+                      Choose
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div> */}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
